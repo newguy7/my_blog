@@ -1,9 +1,17 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 import requests
+import smtplib
+import os
 from datetime import date
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 app = Flask(__name__)
+
+password = os.environ.get('APP_PASSWORD')
+to_email = os.environ.get('TO_EMAIL')
 
 blog_url = "https://api.npoint.io/e6f33017fd9af4fb3cfb"
 blog_response = requests.get(blog_url)
@@ -26,7 +34,20 @@ for post in all_posts:
     
     all_posts_list.append(post_dict)
     
-    
+# ----------------------------- SEND EMAIL -----------------------------------#
+def send_email(name,email,phone_number,message):
+    message=f"Name: {name}\nEmail: {email}\nPhone: {phone_number}\nMessage: {message}"
+    with smtplib.SMTP("smtp.gmail.com",port=587) as connection:
+        # to secure our email connection
+        connection.starttls()
+
+        # log in to the email provider
+        connection.login(user=to_email, password=password)
+        connection.sendmail(
+            # from_addr=request.form['email'], 
+            from_addr=to_email,
+            to_addrs=to_email,
+            msg=f"Subject:Blog Message\n\n{message}")    
     
 
 @app.route("/")
@@ -45,15 +66,21 @@ def get_post(blog_id):
             print(requested_post['post_image'])
     return render_template("post.html", post=requested_post, image=requested_post['post_image'],year=current_year)
 
-@app.route("/about")
-def about():
-    return render_template("about.html")
-
-@app.route("/contact")
+@app.route("/contact", methods=["GET", "POST"])
 def contact():
+    if request.method == 'POST':
+        data = request.form        
+        name = data['name']
+        email = data['email']
+        phone_number = data['phone']
+        message = data['message']
+        print(name)
+        print(email)
+        print(phone_number)
+        print(message)
+        send_email(name,email,phone_number,message)
+        return render_template("contact.html",confirm_message="Successfully sent message")
     return render_template("contact.html")
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)
